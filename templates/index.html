@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Algoritmo de Dijkstra</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <!-- Añadimos D3.js para la visualización del grafo -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
   <style>
     body {
       font-family: 'Poppins', sans-serif;
@@ -17,105 +19,405 @@
       min-height: 100vh;
       color: #333;
     }
-    h1 {
-      margin-top: 50px;
-      font-size: 2.5rem;
+    h1, h2 {
+      margin-top: 30px;
       color: #2c3e50;
+      text-align: center;
     }
-    #results {
+    .container {
+      display: flex;
+      flex-direction: column;
+      width: 90%;
+      max-width: 1200px;
+      margin: 20px auto;
+    }
+    .panel {
       background-color: #ffffffee;
       border-radius: 12px;
       box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
       padding: 20px;
-      margin: 20px;
-      width: 50%;
-      max-width: 900px;
-      overflow-x: auto;
+      margin-bottom: 20px;
     }
-    .horizontal-results {
-      display: flex;
-      flex-wrap: nowrap;
-      overflow-x: auto;
-      gap: 10px;
-      padding-bottom: 10px;
+    .form-group {
+      margin-bottom: 15px;
     }
-    .result-item {
-      background-color: #f7f9fc;
-      border-radius: 8px;
-      padding: 12px;
-      min-width: 50px;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-      border-left: 4px solid #3498db;
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 600;
     }
-    button {
+    input, textarea, select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-family: inherit;
+    }
+    .btn {
       background-color: #2980b9;
       color: white;
       border: none;
       border-radius: 10px;
-      padding: 15px 25px;
+      padding: 12px 20px;
       font-size: 1rem;
       font-weight: 600;
       cursor: pointer;
       transition: background-color 0.3s ease;
-      margin-bottom: 40px;
+      margin-top: 10px;
     }
-    button:hover {
+    .btn:hover {
       background-color: #3498db;
     }
-    @media (max-width: 600px) {
-      h1 {
-        font-size: 2rem;
-        margin: 30px 20px 10px;
+    .results {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .result-card {
+      background-color: #f7f9fc;
+      border-radius: 8px;
+      padding: 15px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+      border-left: 4px solid #3498db;
+      flex: 1;
+      min-width: 200px;
+    }
+    #grafo-container {
+      width: 100%;
+      height: 400px;
+      background-color: #fff;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .node {
+      stroke: #fff;
+      stroke-width: 2px;
+    }
+    .link {
+      stroke: #999;
+      stroke-opacity: 0.6;
+    }
+    .path-link {
+      stroke: #ff4757;
+      stroke-width: 3px;
+      stroke-opacity: 0.8;
+    }
+    .path-node {
+      fill: #ff4757;
+    }
+    .weight-label {
+      font-size: 12px;
+      fill: #555;
+    }
+    .node-label {
+      font-size: 14px;
+      font-weight: bold;
+      text-anchor: middle;
+      pointer-events: none;
+    }
+    #ejemplo-grafo {
+      font-size: 12px;
+      color: #777;
+      margin-top: 5px;
+    }
+    #error-message {
+      color: #e74c3c;
+      font-weight: bold;
+      display: none;
+      margin: 10px 0;
+    }
+    .nodo-input {
+      display: flex;
+      gap: 10px;
+    }
+    .nodo-input input {
+      flex: 1;
+    }
+    @media (max-width: 768px) {
+      .container {
+        width: 95%;
       }
-      button {
-        width: 80%;
+      .results {
+        flex-direction: column;
+      }
+      #grafo-container {
+        height: 300px;
       }
     }
   </style>
 </head>
 <body>
-  <h1>Algoritmo de Dijkstra</h1>
-  <div id="results">Presiona el botón para calcular el algoritmo.</div>
-  <button onclick="calcularDijkstra()">Calcular Dijkstra</button>
+  <div class="container">
+    <h1>Algoritmo de Dijkstra - Cálculo de la Ruta Más Corta</h1>
+    
+    <div class="panel">
+      <h2>Ingrese los datos del grafo</h2>
+      
+      <div class="form-group">
+        <label for="grafo-input">Grafo (formato JSON):</label>
+        <textarea id="grafo-input" rows="6">{"1": {"2": 3, "3": 6}, "2": {"1": 3, "3": 2, "4": 1}, "3": {"1": 6, "2": 2, "4": 4, "5": 2}, "4": {"2": 1, "3": 4, "5": 6}, "5": {"3": 2, "4": 6, "6": 2, "7": 2}, "6": {"5": 2, "7": 3}, "7": {"5": 2, "6": 3}}</textarea>
+        <div id="ejemplo-grafo">Ejemplo: {"1": {"2": 3, "3": 6}, "2": {"1": 3, "3": 2}} donde los números indican nodos y valores indican pesos</div>
+      </div>
+      
+      <div class="nodo-input">
+        <div class="form-group">
+          <label for="nodo-inicial">Nodo Inicial:</label>
+          <input type="text" id="nodo-inicial" value="1">
+        </div>
+        
+        <div class="form-group">
+          <label for="nodo-final">Nodo Final:</label>
+          <input type="text" id="nodo-final" value="7">
+        </div>
+      </div>
+      
+      <div id="error-message"></div>
+      
+      <button class="btn" onclick="calcularDijkstra()">Calcular Ruta Más Corta</button>
+    </div>
+    
+    <div class="panel">
+      <h2>Visualización del Grafo</h2>
+      <div id="grafo-container"></div>
+    </div>
+    
+    <div class="panel">
+      <h2>Resultados</h2>
+      <div class="results" id="results-container"></div>
+    </div>
+  </div>
+  
   <script>
+    // Función para calcular el algoritmo de Dijkstra
     function calcularDijkstra() {
-      fetch('/dijkstra')
-        .then(response => response.json())
-        .then(data => {
-          const resultsDiv = document.getElementById('results');
-          
-          // Crear el contenedor horizontal
-          resultsDiv.innerHTML = '<h3>Resultado:</h3><div class="horizontal-results"></div>';
-          const horizontalContainer = resultsDiv.querySelector('.horizontal-results');
-          
-          // Si data es un objeto, convertirlo en array de pares clave-valor
-          if (!Array.isArray(data)) {
-            const items = Object.entries(data);
-            items.forEach(([key, value]) => {
-              const itemDiv = document.createElement('div');
-              itemDiv.className = 'result-item';
-              itemDiv.innerHTML = `<strong>${key}:</strong> ${typeof value === 'object' ? JSON.stringify(value) : value}`;
-              horizontalContainer.appendChild(itemDiv);
-            });
-          } else {
-            // Si data es un array, mostrar cada elemento
-            data.forEach((item, index) => {
-              const itemDiv = document.createElement('div');
-              itemDiv.className = 'result-item';
-              if (typeof item === 'object') {
-                itemDiv.innerHTML = `<strong>Nodo ${index + 1}:</strong><br>${JSON.stringify(item)}`;
-              } else {
-                itemDiv.innerHTML = `<strong>Elemento ${index + 1}:</strong> ${item}`;
-              }
-              horizontalContainer.appendChild(itemDiv);
-            });
+      const grafoInput = document.getElementById('grafo-input').value;
+      const nodoInicial = document.getElementById('nodo-inicial').value;
+      const nodoFinal = document.getElementById('nodo-final').value;
+      
+      try {
+        const grafo = JSON.parse(grafoInput);
+        
+        // Validar que los nodos existan en el grafo
+        if (!grafo[nodoInicial]) {
+          mostrarError(`El nodo inicial "${nodoInicial}" no existe en el grafo`);
+          return;
+        }
+        if (!grafo[nodoFinal]) {
+          mostrarError(`El nodo final "${nodoFinal}" no existe en el grafo`);
+          return;
+        }
+        
+        // Ocultar mensaje de error si existe
+        document.getElementById('error-message').style.display = 'none';
+        
+        // Enviar la solicitud a la API
+        fetch('/dijkstra', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            grafo: grafo,
+            nodo_inicial: nodoInicial,
+            nodo_final: nodoFinal
+          }),
+        })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Error en la respuesta del servidor');
           }
+          return response.json();
+        })
+        .then(data => {
+          mostrarResultados(data);
+          visualizarGrafo(data);
         })
         .catch(error => {
-          console.error('Error fetching data:', error);
-          document.getElementById('results').innerHTML = `<p style="color:red;">Ocurrió un error al obtener los datos.</p>`;
+          console.error('Error:', error);
+          mostrarError(`Error al procesar la solicitud: ${error.message}`);
         });
+      } catch (error) {
+        mostrarError(`Error al procesar el formato JSON del grafo: ${error.message}`);
+      }
     }
+    
+    // Función para mostrar mensajes de error
+    function mostrarError(mensaje) {
+      const errorElement = document.getElementById('error-message');
+      errorElement.textContent = mensaje;
+      errorElement.style.display = 'block';
+    }
+    
+    // Función para mostrar los resultados
+    function mostrarResultados(data) {
+      const resultsContainer = document.getElementById('results-container');
+      resultsContainer.innerHTML = '';
+      
+      // Mostrar la ruta más corta
+      const rutaCard = document.createElement('div');
+      rutaCard.className = 'result-card';
+      
+      const ruta = data.ruta_mas_corta.join(' → ');
+      rutaCard.innerHTML = `
+        <h3>Ruta más corta</h3>
+        <p><strong>Desde:</strong> ${data.ruta_mas_corta[0]} <strong>hasta:</strong> ${data.ruta_mas_corta[data.ruta_mas_corta.length - 1]}</p>
+        <p><strong>Recorrido:</strong> ${ruta}</p>
+        <p><strong>Distancia total:</strong> ${data.peso_total}</p>
+      `;
+      resultsContainer.appendChild(rutaCard);
+      
+      // Mostrar las etiquetas (distancias mínimas)
+      const etiquetasCard = document.createElement('div');
+      etiquetasCard.className = 'result-card';
+      
+      let etiquetasHtml = '<h3>Distancias mínimas</h3><ul>';
+      for (const [nodo, [distancia, predecesor]] of Object.entries(data.etiquetas)) {
+        etiquetasHtml += `<li><strong>Nodo ${nodo}:</strong> Distancia: ${distancia}, Predecesor: ${predecesor || 'Ninguno'}</li>`;
+      }
+      etiquetasHtml += '</ul>';
+      
+      etiquetasCard.innerHTML = etiquetasHtml;
+      resultsContainer.appendChild(etiquetasCard);
+    }
+    
+    // Función para visualizar el grafo usando D3.js
+    function visualizarGrafo(data) {
+      const container = document.getElementById('grafo-container');
+      container.innerHTML = '';
+      
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      
+      // Crear el SVG
+      const svg = d3.select('#grafo-container')
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+      
+      // Configurar la simulación de fuerzas
+      const simulation = d3.forceSimulation()
+        .force('link', d3.forceLink().id(d => d.id).distance(100))
+        .force('charge', d3.forceManyBody().strength(-300))
+        .force('center', d3.forceCenter(width / 2, height / 2));
+      
+      // Preparar los datos
+      const nodes = data.grafo.nodos.map(id => ({ id }));
+      
+      const links = data.grafo.enlaces.map(link => ({
+        source: link.origen,
+        target: link.destino,
+        weight: link.peso
+      }));
+      
+      // Añadir la ruta más corta
+      const rutaSet = new Set();
+      for (let i = 0; i < data.ruta_mas_corta.length - 1; i++) {
+        rutaSet.add(`${data.ruta_mas_corta[i]}-${data.ruta_mas_corta[i+1]}`);
+      }
+      
+      // Crear los enlaces
+      const link = svg.append('g')
+        .selectAll('line')
+        .data(links)
+        .enter().append('line')
+        .attr('class', d => {
+          const key1 = `${d.source}-${d.target}`;
+          const key2 = `${d.target}-${d.source}`;
+          return rutaSet.has(key1) || rutaSet.has(key2) ? 'link path-link' : 'link';
+        });
+      
+      // Añadir etiquetas de peso a los enlaces
+      const linkLabels = svg.append('g')
+        .selectAll('text')
+        .data(links)
+        .enter().append('text')
+        .attr('class', 'weight-label')
+        .text(d => d.weight);
+      
+      // Crear nodos
+      const node = svg.append('g')
+        .selectAll('circle')
+        .data(nodes)
+        .enter().append('circle')
+        .attr('class', d => {
+          return data.ruta_mas_corta.includes(d.id) ? 'node path-node' : 'node';
+        })
+        .attr('r', 15)
+        .attr('fill', d => {
+          if (d.id === data.ruta_mas_corta[0]) return '#4cd137'; // Nodo inicial (verde)
+          if (d.id === data.ruta_mas_corta[data.ruta_mas_corta.length - 1]) return '#fbc531'; // Nodo final (amarillo)
+          return data.ruta_mas_corta.includes(d.id) ? '#ff4757' : '#3498db'; // Ruta o nodo normal
+        })
+        .call(d3.drag()
+          .on('start', dragstarted)
+          .on('drag', dragged)
+          .on('end', dragended));
+      
+      // Añadir etiquetas a los nodos
+      const nodeLabels = svg.append('g')
+        .selectAll('text')
+        .data(nodes)
+        .enter().append('text')
+        .attr('class', 'node-label')
+        .attr('dy', '0.35em')
+        .text(d => d.id);
+      
+      // Actualizar posiciones en cada tick de la simulación
+      simulation
+        .nodes(nodes)
+        .on('tick', ticked);
+      
+      simulation.force('link')
+        .links(links);
+      
+      // Función para actualizar posiciones en cada tick
+      function ticked() {
+        link
+          .attr('x1', d => d.source.x)
+          .attr('y1', d => d.source.y)
+          .attr('x2', d => d.target.x)
+          .attr('y2', d => d.target.y);
+        
+        node
+          .attr('cx', d => d.x)
+          .attr('cy', d => d.y);
+        
+        nodeLabels
+          .attr('x', d => d.x)
+          .attr('y', d => d.y);
+        
+        linkLabels
+          .attr('x', d => (d.source.x + d.target.x) / 2)
+          .attr('y', d => (d.source.y + d.target.y) / 2);
+      }
+      
+      // Funciones para el arrastre de nodos
+      function dragstarted(event, d) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+      }
+      
+      function dragged(event, d) {
+        d.fx = event.x;
+        d.fy = event.y;
+      }
+      
+      function dragended(event, d) {
+        if (!event.active) simulation.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+      }
+    }
+    
+    // Cargar el grafo inicial al cargar la página
+    window.onload = function() {
+      // Simular un clic en el botón para mostrar el grafo inicialmente
+      setTimeout(() => {
+        calcularDijkstra();
+      }, 500);
+    };
   </script>
 </body>
 </html>
